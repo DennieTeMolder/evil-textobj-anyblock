@@ -76,17 +76,16 @@ whether to make an outer or inner textobject."
   "Sort blocks by the size of the selection they would create."
   (sort
    (cl-loop for (open-block . close-block) in evil-textobj-anyblock-blocks
-            when (ignore-errors
-                   (let ((block-info
+            when (let ((block-info
+                        (ignore-errors
                           (evil-textobj-anyblock--choose-textobj-method
                            open-block close-block beg end type count outerp)))
-                     (when (and block-info
-                                ;; prevent seeking forward behaviour for quotes
-                                ;; require a new region to be larder on both sides
-                                (>= (or beg (point)) (cl-first block-info))
-                                (<= (or end (point)) (cl-second block-info)))
-                       ;; (append block-info (list open-block close-block))
-                       block-info)))
+                       (end-adj (and end (- end (if outerp 0 1)))))
+                   (when (and block-info
+                              ;; require a new region to fully contain the old
+                              (>= (or beg (point)) (cl-first block-info))
+                              (<= (or end-adj (point)) (cl-second block-info)))
+                     block-info))
             collect it)
    ;; sort by area of selection
    ;; used to search for closest open block, which is probably more efficient
