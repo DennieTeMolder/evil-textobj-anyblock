@@ -3,7 +3,7 @@
 ;; Author: Fox Kiester <noct@openmailbox.org>
 ;; URL: https://github.com/noctuid/evil-textobj-anyblock
 ;; Keywords: evil
-;; Package-Requires: ((cl-lib "0.5") (evil "1.1.0"))
+;; Package-Requires: ((emacs "26.1") (evil "1.1.0"))
 ;; Version: 0.1
 
 ;;; Commentary:
@@ -72,33 +72,37 @@ whether to make an outer or inner textobject."
         (evil-select-quote open-block beg end type count outerp)
       (evil-select-paren open-block close-block beg end type count outerp))))
 
-(defun evil-textobj-anyblock--valid-block-p (info open close outerp)
-  "Return t if INFO block is delimited by OPEN and CLOSE as OUTERP."
-  (when info
-    (let ((start (cl-first info))
-          (end (cl-second info)))
-      (unless outerp
-        (setq start (1- start)
-              end (1+ end)))
-      ;; Use `string-trim' because Evil includes whitespace before OPEN
-      (let ((str (string-trim (buffer-substring-no-properties start end))))
-        (and (string= open (substring str 0 1))
-             (string= close (substring str (1- (length str)))))))))
+(defun evil-textobj-anyblock--valid-block-p (bstart bend open close)
+  "Return t if region BSTART to BEND is delimited by OPEN and CLOSE."
+  ;; Use `string-trim' because Evil might include whitespace before OPEN
+  (let ((str (string-trim (buffer-substring-no-properties bstart bend))))
+    (and (string= open (substring str 0 1))
+         (string= close (substring str (1- (length str)))))))
+
+(defun evil-textobj-anyblock--get-valid-block (open-block close-block beg end type count outerp)
+  "Return OUTERP block delimited by OPEN-BLOCK CLOSE-BLOCK of TYPE at COUNT.
+Returns nil when the region is invalid for BEG and END."
+  (when-let* ((block-info
+               (ignore-errors
+                 (evil-textobj-anyblock--choose-textobj-method
+                  open-block close-block beg end type count outerp)))
+              (bstart (cl-first block-info))
+              (bend (cl-second block-info)))
+    (unless outerp
+      (setq bstart (1- bstart)
+            bend (1+ bend)))
+    (when (and (evil-textobj-anyblock--valid-block-p bstart bend open-block close-block)
+               ;; require a new region to fully contain the old
+               (>= (or beg (point)) bstart)
+               (<= (or end (1+ (point))) bend))
+      block-info)))
 
 (defun evil-textobj-anyblock--sort-blocks (beg end type count outerp)
   "Sort blocks by the size of the selection they would create."
   (sort
    (cl-loop for (open-block . close-block) in evil-textobj-anyblock-blocks
-            when (let ((block-info
-                        (ignore-errors
-                          (evil-textobj-anyblock--choose-textobj-method
-                           open-block close-block beg end type count outerp)))
-                       (end-adj (and end (- end (if outerp 0 1)))))
-                   (when (and (evil-textobj-anyblock--valid-block-p block-info open-block close-block outerp)
-                              ;; require a new region to fully contain the old
-                              (>= (or beg (point)) (cl-first block-info))
-                              (<= (or end-adj (point)) (cl-second block-info)))
-                     block-info))
+            when (evil-textobj-anyblock--get-valid-block
+                  open-block close-block beg end type count outerp)
             collect it)
    ;; sort by area of selection
    ;; used to search for closest open block, which is probably more efficient
