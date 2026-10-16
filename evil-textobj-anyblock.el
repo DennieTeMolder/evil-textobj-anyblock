@@ -79,9 +79,9 @@ whether to make an outer or inner textobject."
     (and (string= open (substring str 0 1))
          (string= close (substring str (1- (length str)))))))
 
-(defun evil-textobj-anyblock--get-valid-block (open-block close-block beg end type count outerp)
+(defun evil-textobj-anyblock--get-enclosing (open-block close-block beg end type count outerp)
   "Return OUTERP block delimited by OPEN-BLOCK CLOSE-BLOCK of TYPE at COUNT.
-Returns nil when the region is invalid for BEG and END."
+Only return regions enclosing BEG and END, nil otherwise."
   (when-let* ((block-info
                (ignore-errors
                  (evil-textobj-anyblock--choose-textobj-method
@@ -91,17 +91,17 @@ Returns nil when the region is invalid for BEG and END."
     (unless outerp
       (setq bstart (1- bstart)
             bend (1+ bend)))
-    (when (and (evil-textobj-anyblock--valid-block-p bstart bend open-block close-block)
-               ;; require a new region to fully contain the old
-               (>= (or beg (point)) bstart)
-               (<= (or end (1+ (point))) bend))
+    ;; require a new region to fully contain the old
+    (when (and (>= (or beg (point)) bstart)
+               (<= (or end (1+ (point))) bend)
+               (evil-textobj-anyblock--valid-block-p bstart bend open-block close-block))
       block-info)))
 
 (defun evil-textobj-anyblock--sort-blocks (beg end type count outerp)
   "Sort blocks by the size of the selection they would create."
   (sort
    (cl-loop for (open-block . close-block) in evil-textobj-anyblock-blocks
-            when (evil-textobj-anyblock--get-valid-block
+            when (evil-textobj-anyblock--get-enclosing
                   open-block close-block beg end type count outerp)
             collect it)
    ;; sort by area of selection
