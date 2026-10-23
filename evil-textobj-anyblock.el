@@ -65,12 +65,13 @@ whether to make an outer or inner textobject."
                 (t (list open-block close-block))))
          (open-block (cl-first blocks))
          (close-block (cl-second blocks)))
-    (if (and (equal open-block close-block)
-             (or (equal open-block ?')
-                 (equal open-block ?\")
-                 (equal open-block ?`)))
-        (evil-select-quote open-block beg end type count outerp)
-      (evil-select-paren open-block close-block beg end type count outerp))))
+    (save-excursion
+      (if (and (equal open-block close-block)
+               (or (equal open-block ?')
+                   (equal open-block ?\")
+                   (equal open-block ?`)))
+          (evil-select-quote open-block beg end type count outerp)
+        (evil-select-paren open-block close-block beg end type count outerp)))))
 
 (defun evil-textobj-anyblock--valid-block-p (bstart bend open close)
   "Return t if region BSTART to BEND is delimited by OPEN and CLOSE."
